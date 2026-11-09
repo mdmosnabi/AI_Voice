@@ -1,0 +1,17 @@
+# 1. Bengali Male
+python cli_tts.py -t "আজকের আবহাওয়া খুব সুন্দর।" -v ben_male -o ben_male.wav
+
+# 2. Bengali Female
+python cli_tts.py -t "আজকের আবহাওয়া খুব সুন্দর।" -v ben_female -o ben_female.wav
+
+# 3. Hindi Male
+python cli_tts.py -t "आज का मौसम बहुत सुहावना है।" -v hin_male -o hin_male.wav
+
+# 4. Hindi Female
+python cli_tts.py -t "आज का मौसम बहुत सुहावना है।" -v hin_female -o hin_female.wav
+
+# 5. English Male
+python cli_tts.py -t "The weather is very nice today." -v eng_male -o eng_male.wav
+
+# 6. English Female
+python cli_tts.py -t "The weather is very nice today." -v eng_female -o eng_female.wav

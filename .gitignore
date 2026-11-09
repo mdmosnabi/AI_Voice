@@ -1,0 +1,39 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# AI models
+models/
+*.bin
+*.safetensors
+*.pth
+*.pt
+*.onnx
+
+# Generated files
+output/
+outputs/
+
+# Temporary files
+*.wav
+*.mp3
+*.mp4
+*.tmp
+
+# Environment secrets
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
