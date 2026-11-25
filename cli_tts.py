@@ -1,43 +1,35 @@
-
 import argparse
-import os
 import sys
 import time
 from pathlib import Path
 
-import torch
 import scipy.io.wavfile as wavfile
-from transformers import VitsModel, AutoTokenizer
-
+import torch
+from transformers import AutoTokenizer, VitsModel
 
 # ==================================================
 # CONFIGURATION
 # ==================================================
 
 BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "outputs"
+INDIC_MODEL_DIR = BASE_DIR / "models" / "indic-tiny-tts-bengali"
 
-# Existing Hugging Face models
+DEFAULT_SPEED = 1.05
+CPU_THREADS = 4
+
 MODEL_MAP = {
-    "ben_male": "facebook/mms-tts-ben",
     "hin_male": "facebook/mms-tts-hin",
     "hin_female": "Anjan9320/fb-mms-tts-hin-ft-female",
     "eng_male": "facebook/mms-tts-eng",
 }
 
-# New local Bangladeshi Bangla female VITS model
-LOCAL_VITS_PROFILES = {
-    "ben_female": {
-        "model_dir": Path(
-            r"D:\AI_Voice\models\bangladeshi_bangla_tts_vits"
-        ),
-        "checkpoint": "pytorch_model.pth",
-        "config": "config.json",
-    },
+INDIC_VOICE_PROFILES = {
+    "ben_male": "male",
+    "ben_female": "female",
 }
 
-ALL_VOICES = list(MODEL_MAP.keys()) + list(LOCAL_VITS_PROFILES.keys())
-
-OUTPUT_DIR = BASE_DIR / "outputs"
+ALL_VOICES = list(MODEL_MAP.keys()) + list(INDIC_VOICE_PROFILES.keys())
 
 
 # ==================================================
@@ -52,14 +44,39 @@ if hasattr(sys.stderr, "reconfigure"):
 
 
 # ==================================================
+# INDIC TINY TTS ENGINE
+# ==================================================
+
+def generate_indic_bengali_audio(text: str, voice: str, out_path: Path):
+    if not INDIC_MODEL_DIR.is_dir():
+        raise FileNotFoundError(f"Indic Tiny TTS model not found: {INDIC_MODEL_DIR}")
+
+    if str(INDIC_MODEL_DIR) not in sys.path:
+        sys.path.insert(0, str(INDIC_MODEL_DIR))
+
+    from indic_tiny_tts import TinyTTS
+
+    print("[+] Loading Indic Tiny TTS Bengali...")
+    print("[+] Device: CPU")
+    print(f"[+] Threads: {CPU_THREADS}")
+    print(f"[+] Speed: {DEFAULT_SPEED}x")
+
+    tts = TinyTTS.from_pretrained(
+        str(INDIC_MODEL_DIR),
+        device="cpu",
+        threads=CPU_THREADS,
+    )
+
+    print(f"[+] Generating Bengali {voice} voice...")
+    wav = tts.synthesize(text, voice=voice, speed=DEFAULT_SPEED)
+    tts.save_wav(wav, str(out_path))
+
+
+# ==================================================
 # EXISTING TRANSFORMERS TTS ENGINE
 # ==================================================
 
-def generate_transformers_audio(
-    text: str,
-    model_id: str,
-    out_path: Path,
-):
+def generate_transformers_audio(text: str, model_id: str, out_path: Path):
     print(f"[+] Loading Transformers model: {model_id}")
 
     tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -69,82 +86,26 @@ def generate_transformers_audio(
     torch.manual_seed(42)
 
     print("[+] Processing text...")
-
     inputs = tokenizer(text, return_tensors="pt")
 
     with torch.no_grad():
         output = model(**inputs).waveform
 
     audio_data = output.squeeze().float().cpu().numpy()
-
-    wavfile.write(
-        str(out_path),
-        rate=model.config.sampling_rate,
-        data=audio_data,
-    )
-
-
-# ==================================================
-# NEW LOCAL BANGLA FEMALE VITS ENGINE
-# ==================================================
-
-def generate_bengali_female_audio(
-    text: str,
-    out_path: Path,
-):
-    profile = LOCAL_VITS_PROFILES["ben_female"]
-
-    model_dir = profile["model_dir"]
-    model_path = model_dir / profile["checkpoint"]
-    config_path = model_dir / profile["config"]
-
-    if not model_path.is_file():
-        raise FileNotFoundError(
-            f"Bangla VITS model weights not found: {model_path}"
-        )
-
-    if not config_path.is_file():
-        raise FileNotFoundError(
-            f"Bangla VITS config not found: {config_path}"
-        )
-
-    print("[+] Loading local Bangladeshi Bangla Female VITS...")
-    print("[+] Device: CPU")
-
-    from TTS.utils.synthesizer import Synthesizer
-
-    synthesizer = Synthesizer(
-        tts_checkpoint=str(model_path),
-        tts_config_path=str(config_path),
-        use_cuda=False,
-    )
-
-    print("[+] Generating Bengali female voice...")
-
-    audio = synthesizer.tts(text)
-
-    synthesizer.save_wav(
-        audio,
-        str(out_path),
-    )
+    wavfile.write(str(out_path), rate=model.config.sampling_rate, data=audio_data)
 
 
 # ==================================================
 # SHARED CLI GENERATION FUNCTION
 # ==================================================
 
-def generate_audio(
-    text: str,
-    model_key: str,
-    output_filename: str,
-):
-    if model_key not in ALL_VOICES:
-        raise ValueError(
-            f"Invalid voice '{model_key}'. "
-            f"Available voices: {ALL_VOICES}"
-        )
+def generate_audio(text: str, model_key: str, output_filename: str):
+    if not text or not text.strip():
+        raise ValueError("Input text cannot be empty.")
 
-    # Prevent output filenames from escaping outputs/
+    if model_key not in ALL_VOICES:
+        raise ValueError(f"Invalid voice '{model_key}'. Available voices: {ALL_VOICES}")
+
     filename = Path(output_filename)
 
     if (
@@ -153,9 +114,7 @@ def generate_audio(
         or filename.suffix.lower() != ".wav"
         or output_filename in {".", ".."}
     ):
-        raise ValueError(
-            "Output must be a WAV filename, e.g. output.wav"
-        )
+        raise ValueError("Output must be a WAV filename, e.g. output.wav")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = (OUTPUT_DIR / filename.name).resolve()
@@ -165,12 +124,13 @@ def generate_audio(
 
     start_time = time.perf_counter()
 
-    if model_key in LOCAL_VITS_PROFILES:
-        generate_bengali_female_audio(
+    if model_key in INDIC_VOICE_PROFILES:
+        generate_indic_bengali_audio(
             text=text,
+            voice=INDIC_VOICE_PROFILES[model_key],
             out_path=out_path,
         )
-    else:
+    elif model_key in MODEL_MAP:
         generate_transformers_audio(
             text=text,
             model_id=MODEL_MAP[model_key],
@@ -196,17 +156,13 @@ def generate_audio(
 # ==================================================
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Local TTS Engine CLI for project integration"
-    )
-
+    parser = argparse.ArgumentParser(description="Local TTS Engine CLI")
     parser.add_argument(
         "--text", "-t",
         type=str,
         required=True,
         help="Text to convert into speech",
     )
-
     parser.add_argument(
         "--voice", "-v",
         type=str,
@@ -214,11 +170,10 @@ def main():
         choices=ALL_VOICES,
         help=f"Voice profile: {', '.join(ALL_VOICES)}",
     )
-
     parser.add_argument(
         "--output", "-o",
         type=str,
-        default="output.wav",
+        required=True,
         help="Output WAV filename",
     )
 
@@ -239,3 +194,6 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+    

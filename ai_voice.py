@@ -8,13 +8,13 @@ import sys
 # ==================================================
 
 MODEL_DIR = Path(
-    r"D:\AI_Voice\models\bangladeshi_bangla_tts_vits"
+    r"E:\AI_Voice\models\bangladeshi_bangla_tts_vits"
 )
 
 MODEL_PATH = MODEL_DIR / "pytorch_model.pth"
 CONFIG_PATH = MODEL_DIR / "config.json"
 
-OUTPUT_DIR = Path(r"D:\AI_Voice\output")
+OUTPUT_DIR = Path(r"E:\AI_Voice\output")
 OUTPUT_FILE = OUTPUT_DIR / "bangla_vits_test.wav"
 
 # Approximately 40 Bengali words

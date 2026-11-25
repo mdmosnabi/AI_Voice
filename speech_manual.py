@@ -17,7 +17,7 @@ from transformers import AutoTokenizer, AutoModelForSpeechSeq2Seq
 # Configuration
 # --------------------------------------------------
 
-MODEL_DIR = Path(r"D:\AI_Voice\models\moonshine-base-bn")
+MODEL_DIR = Path(r"E:\AI_Voice\models\moonshine-base-bn")
 SAMPLE_RATE = 16000
 CHUNK_SECONDS = 30
 MAX_NEW_TOKENS = 200
